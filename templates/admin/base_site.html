@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | BookWise Admin{% endblock %}
+
+{% block extrastyle %}
+  <link rel="stylesheet" href="{% static 'css/admin_custom.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div id="site-name"><a href="{% url 'admin:index' %}">📅 BookWise Admin</a></div>
+{% endblock %}
+
+{% block nav-global %}
+  <a class="back-to-app" href="/">← Back to Dashboard</a>
+{% endblock %}

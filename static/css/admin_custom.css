@@ -1,0 +1,127 @@
+/* Override Django admin colors with the BookWise dark green palette */
+:root,
+html[data-theme],
+html[data-theme="light"],
+html[data-theme="dark"] {
+  --primary: #14532d;
+  --secondary: #166534;
+  --accent: #86efac;
+  --primary-fg: #ffffff;
+
+  --body-fg: #1a2e24;
+  --body-bg: #f3f6f4;
+  --body-quiet-color: #6b7a72;
+  --body-loud-color: #0f3d2e;
+
+  --header-color: #d1e7dc;
+  --header-branding-color: #ffffff;
+  --header-bg: #0f3d2e;
+  --header-link-color: #ffffff;
+
+  --breadcrumbs-fg: #d1e7dc;
+  --breadcrumbs-link-fg: #ffffff;
+  --breadcrumbs-bg: #166534;
+
+  --link-fg: #166534;
+  --link-hover-color: #0f3d2e;
+  --link-selected-fg: #0f3d2e;
+
+  --hairline-color: #e3e9e5;
+  --border-color: #d5ddd8;
+  --darkened-bg: #f3f6f4;
+  --selected-bg: #dcfce7;
+  --selected-row: #ecfdf3;
+
+  --button-fg: #ffffff;
+  --button-bg: #166534;
+  --button-hover-bg: #14532d;
+  --default-button-bg: #14532d;
+  --default-button-hover-bg: #0f3d2e;
+  --close-button-bg: #6b7a72;
+  --close-button-hover-bg: #4b5a52;
+  --delete-button-bg: #b91c1c;
+  --delete-button-hover-bg: #991b1b;
+
+  --object-tools-fg: #ffffff;
+  --object-tools-bg: #166534;
+  --object-tools-hover-bg: #14532d;
+
+  --message-success-bg: #d1fae5;
+  --message-warning-bg: #fef3c7;
+  --message-error-bg: #fee2e2;
+}
+
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+/* Header */
+#header { padding: 14px 32px; box-shadow: 0 2px 8px rgba(15, 61, 46, .25); }
+#site-name a { font-weight: 700; font-size: 1.25rem; letter-spacing: .2px; }
+#user-tools { font-size: .85rem; }
+#user-tools a { border-bottom: 0; opacity: .9; }
+#user-tools a:hover { opacity: 1; text-decoration: underline; }
+.back-to-app {
+  display: inline-block;
+  margin-left: 24px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: .85rem;
+}
+.back-to-app:hover { background: rgba(255, 255, 255, .22); }
+
+/* Breadcrumbs */
+div.breadcrumbs { padding: 10px 32px; }
+
+/* Content */
+#content { padding: 24px 32px; }
+h1 { color: #0f3d2e; font-weight: 700; }
+
+/* Cards on the admin home page and tables */
+.module {
+  background: #fff;
+  border: 1px solid var(--hairline-color);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 61, 46, .05);
+}
+.module h2, .module caption, .inline-group h2 {
+  background: var(--secondary);
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.module caption a, .module h2 a { color: #fff; }
+thead th { background: #ecfdf3; color: #0f3d2e; }
+tr:hover td { background: #f7fcf9; }
+
+/* Buttons and tools */
+.button, input[type=submit], input[type=button], .submit-row input, a.button {
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 10px 18px;
+  transition: background .15s ease;
+}
+.object-tools a { border-radius: 999px; padding: 8px 16px; font-weight: 600; }
+.submit-row { border-radius: 12px; border: 1px solid var(--hairline-color); }
+
+/* Forms */
+input[type=text], input[type=password], input[type=email], input[type=number],
+input[type=url], input[type=datetime-local], textarea, select {
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #166534;
+  outline: 2px solid #bbf7d0;
+}
+
+/* Filters sidebar */
+#changelist-filter { border-radius: 14px; border: 1px solid var(--hairline-color); overflow: hidden; }
+#changelist-filter h2 { background: var(--secondary); color: #fff; }
+#changelist-filter li.selected a { color: #0f3d2e; font-weight: 700; }
+
+/* Messages */
+ul.messagelist li { border-radius: 10px; }

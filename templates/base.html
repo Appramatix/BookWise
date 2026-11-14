@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BookWise{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <nav class="sidebar" aria-label="Main navigation">
+    <a href="/" class="logo" title="BookWise">
+      <span class="icon">📅</span><span class="label">BookWise</span>
+    </a>
+    <a href="/" class="active" title="Dashboard">
+      <span class="icon">🏠</span><span class="label">Dashboard</span>
+    </a>
+    <a href="/admin/reservations/reservation/add/" title="Reserve">
+      <span class="icon">➕</span><span class="label">Reserve</span>
+    </a>
+    <a href="/admin/reservations/reservation/" title="My Reservations">
+      <span class="icon">🗂️</span><span class="label">My Reservations</span>
+    </a>
+    <a href="#" title="Calendar (coming soon)">
+      <span class="icon">🗓️</span><span class="label">Calendar</span>
+    </a>
+    <a href="/admin/reservations/resource/" title="Resources">
+      <span class="icon">🏢</span><span class="label">Resources</span>
+    </a>
+    <a href="#" title="Insights (coming soon)">
+      <span class="icon">📊</span><span class="label">Insights</span>
+    </a>
+    <a href="/admin/reservations/activitylog/" title="Activity Log">
+      <span class="icon">🕘</span><span class="label">Activity Log</span>
+    </a>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">{% block heading %}Dashboard{% endblock %}</div>
+      <a class="user" href="{% if user.is_authenticated %}/admin/{% else %}/admin/login/?next=/{% endif %}">
+        <span class="avatar">{% if user.is_authenticated %}{{ user.username|slice:":1"|upper }}{% else %}G{% endif %}</span>
+        {% if user.is_authenticated %}{{ user.username }}{% else %}Sign in{% endif %}
+      </a>
+    </header>
+
+    <main class="content">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>
