@@ -1,18 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · BookWise{% endblock %}
+{% block heading %}Dashboard{% endblock %}
 
 {% block content %}
 <h1>Live Availability</h1>
-<p class="muted">As of {{ now|date:"M d, h:i A" }}</p>
+<p class="muted">As of {{ now|date:"M d, h:i A" }} · Click a room to see its schedule</p>
+
+{% if user.is_staff and pending_count %}
+  <div class="alert">
+    <strong>{{ pending_count }}</strong> request{{ pending_count|pluralize }} waiting for approval.
+    <a href="{% url 'approvals' %}">Review now</a>
+  </div>
+{% endif %}
 
 <div class="cards">
   {% for card in cards %}
     <div class="card {{ card.status }}">
-      <h2>{{ card.resource.name }}</h2>
+      <h2><a href="{% url 'resource_detail' card.resource.pk %}">{{ card.resource.name }}</a></h2>
       <p class="muted">{{ card.resource.get_type_display }}{% if card.resource.location %} · {{ card.resource.location }}{% endif %}</p>
       <span class="badge {{ card.status }}">{{ card.icon }} {{ card.label }}</span>
-      {% if card.current %}
+
+      {% if card.maint %}
+        <p><strong>{{ card.maint.reason }}</strong></p>
+        <p class="muted">
+          {% if card.maint.end_time %}Back {{ card.maint.end_time|date:"M d, h:i A" }}{% else %}Until further notice{% endif %}
+        </p>
+      {% elif card.current %}
+        {% if user.is_staff %}<p class="who">👤 {{ card.current.user.username }}</p>{% endif %}
         <p>Until {{ card.current.end_time|date:"h:i A" }}</p>
+      {% endif %}
+
+      {% if card.next_maint and not card.maint %}
+        <p class="note">🔧 Maintenance starts {{ card.next_maint.start_time|date:"M d, h:i A" }}</p>
+      {% endif %}
+
+      {% if user.is_staff %}
+        <a class="card-link" href="{% url 'maintenance' %}?resource={{ card.resource.pk }}">🔧 Set maintenance</a>
       {% endif %}
     </div>
   {% empty %}

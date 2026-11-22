@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ resource.name }} · BookWise{% endblock %}
+{% block heading %}{{ resource.name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{% url 'dashboard' %}">← Back to dashboard</a>
+
+<div class="room-head">
+  <div>
+    <h1>{{ resource.name }}</h1>
+    <p class="muted">{{ resource.get_type_display }}{% if resource.location %} · {{ resource.location }}{% endif %} · Capacity {{ resource.capacity }}</p>
+  </div>
+  <div class="room-status">
+    <span class="badge {{ status }}">{{ icon }} {{ label }}</span>
+    {% if maint_now %}
+      <p class="note">{{ maint_now.reason }} · {% if maint_now.end_time %}back {{ maint_now.end_time|date:"M d, h:i A" }}{% else %}until further notice{% endif %}</p>
+    {% elif current %}
+      <p class="note">{% if user.is_staff %}👤 {{ current.user.username }} · {% endif %}until {{ current.end_time|date:"h:i A" }}</p>
+    {% endif %}
+    {% if not user.is_staff %}
+      <a class="btn small" href="{% url 'reserve' %}?resource={{ resource.pk }}">Reserve this</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="date-nav">
+  <a class="filter-chip" href="?date={{ prev_day }}">← Previous</a>
+  <span class="date-label">{{ day|date:"l, M d, Y" }}{% if is_today %} (today){% endif %}</span>
+  <a class="filter-chip" href="?date={{ next_day }}">Next →</a>
+  {% if not is_today %}<a class="filter-chip" href="?date={{ today_str }}">Today</a>{% endif %}
+  <form method="get" class="date-form">
+    <input type="date" name="date" value="{{ day|date:'Y-m-d' }}">
+    <button class="btn small">Go</button>
+  </form>
+</div>
+
+<div class="sched">
+  <div class="sched-bar">
+    {% for b in blocks %}
+      <div class="sched-block {{ b.kind }}" style="left: {{ b.left|stringformat:'.2f' }}%; width: {{ b.width|stringformat:'.2f' }}%;" title="{{ b.label }} · {{ b.detail }}">{{ b.label }}</div>
+    {% endfor %}
+    {% if now_pct is not None %}
+      <div class="sched-now" style="left: {{ now_pct|stringformat:'.2f' }}%;" title="Now"></div>
+    {% endif %}
+  </div>
+  <div class="sched-ticks">
+    {% for t in ticks %}
+      <span class="sched-tick" style="left: {{ t.left|stringformat:'.2f' }}%;">{{ t.label }}</span>
+    {% endfor %}
+  </div>
+  <div class="legend">
+    <span><i class="swatch booked"></i> Booked</span>
+    <span><i class="swatch inuse"></i> In use</span>
+    <span><i class="swatch maint"></i> Maintenance</span>
+    {% if now_pct is not None %}<span><i class="swatch now"></i> Now</span>{% endif %}
+  </div>
+  <p class="note">The bar shows {{ start_label }} to {{ end_label }}.{% if not blocks %} Nothing is booked in this window, so it's free.{% endif %}</p>
+</div>
+
+{% if windows %}
+  <h2 class="section">Maintenance on this day</h2>
+  {% for w in windows %}
+    <div class="alert warning">
+      🔧 <strong>{{ w.reason }}</strong> ·
+      from {{ w.start_time|date:"M d, h:i A" }}
+      {% if w.end_time %}to {{ w.end_time|date:"M d, h:i A" }}{% else %}until further notice{% endif %}
+      {% if user.is_staff %} · <a href="{% url 'maintenance' %}">Manage</a>{% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
+
+<h2 class="section">Bookings</h2>
+{% if bookings %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        {% if user.is_staff %}<th>Booked by</th><th>Purpose</th>{% endif %}
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bookings %}
+      <tr>
+        <td>{{ b.start_time|date:"h:i A" }} – {{ b.end_time|date:"h:i A" }}</td>
+        {% if user.is_staff %}
+          <td><strong>{{ b.user.username }}</strong></td>
+          <td>{{ b.purpose|default:"—" }}</td>
+        {% endif %}
+        <td><span class="badge {{ b.status }}">{{ b.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="panel"><p>No approved bookings on this day.</p></div>
+{% endif %}
+
+{% if user.is_staff %}
+  <h2 class="section">Pending requests</h2>
+  {% if pending %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Requested by</th><th>Time</th><th>Purpose</th><th>Decision</th></tr></thead>
+      <tbody>
+        {% for p in pending %}
+        <tr>
+          <td><strong>{{ p.user.username }}</strong></td>
+          <td>{{ p.start_time|date:"h:i A" }} – {{ p.end_time|date:"h:i A" }}</td>
+          <td>{{ p.purpose|default:"—" }}</td>
+          <td class="actions">
+            {% if p.blocked_by %}
+              <span class="note">Slot already approved for someone else.</span>
+            {% else %}
+              <form method="post" action="{% url 'approve' p.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="btn small">Approve</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'reject' p.pk %}"
+                  data-confirm="The borrower will see your reason in My Reservations."
+                  data-confirm-title="Reject this request?"
+                  data-confirm-button="Yes, reject"
+                  data-confirm-style="danger">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <input class="reason" type="text" name="reason" placeholder="Reason (optional)" maxlength="200">
+              <button class="btn small danger">Reject</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="panel"><p>No pending requests for this day.</p></div>
+  {% endif %}
+
+  <h2 class="section">Usage</h2>
+  <div class="stats">
+    <div class="stat"><b>{{ stats.last7 }}</b><span>Bookings, last 7 days</span></div>
+    <div class="stat"><b>{{ stats.upcoming }}</b><span>Upcoming approved</span></div>
+    <div class="stat"><b>{{ stats.pending }}</b><span>Pending requests</span></div>
+  </div>
+
+  {% if history %}
+    <h2 class="section">Recent maintenance</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Period</th><th>Reason</th></tr></thead>
+        <tbody>
+          {% for w in history %}
+          <tr>
+            <td>{{ w.start_time|date:"M d, h:i A" }} – {{ w.end_time|date:"M d, h:i A" }}</td>
+            <td>{{ w.reason }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}My Reservations · BookWise{% endblock %}
+{% block heading %}My Reservations{% endblock %}
+
+{% block content %}
+<h1>My Reservations</h1>
+
+<h2 class="section">Upcoming</h2>
+{% if upcoming %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Resource</th><th>When</th><th>Purpose</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for r in upcoming %}
+      <tr>
+        <td><strong>{{ r.resource.name }}</strong><br><span class="muted">{{ r.resource.get_type_display }}</span></td>
+        <td>{{ r.start_time|date:"M d, h:i A" }} – {{ r.end_time|date:"h:i A" }}</td>
+        <td>{{ r.purpose|default:"—" }}</td>
+        <td>
+          <span class="badge {{ r.status }}">{{ r.get_status_display }}</span>
+          {% if r.status == 'pending' %}<br><span class="note">Waiting for admin approval</span>{% endif %}
+        </td>
+        <td class="actions">
+          {% if r.can_check_in %}
+          <form method="post" action="{% url 'check_in' r.pk %}">
+            {% csrf_token %}<button class="btn small">Check in</button>
+          </form>
+          {% endif %}
+          {% if r.status == 'pending' or r.status == 'confirmed' %}
+          <form method="post" action="{% url 'cancel' r.pk %}" onsubmit="return confirm('Cancel this?');">
+            {% csrf_token %}<button class="btn small danger">Cancel</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="panel"><p>You have no upcoming reservations. <a href="{% url 'reserve' %}">Make a request</a>.</p></div>
+{% endif %}
+
+<h2 class="section">Past</h2>
+{% if past %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Resource</th><th>When</th><th>Status</th><th>Note</th></tr></thead>
+    <tbody>
+      {% for r in past %}
+      <tr>
+        <td>{{ r.resource.name }}</td>
+        <td>{{ r.start_time|date:"M d, h:i A" }} – {{ r.end_time|date:"h:i A" }}</td>
+        <td><span class="badge {{ r.status }}">{{ r.get_status_display }}</span></td>
+        <td class="note">{{ r.decision_note|default:"" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p class="muted">Nothing here yet.</p>
+{% endif %}
+{% endblock %}

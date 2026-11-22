@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Sign in · BookWise{% endblock %}
+{% block heading %}Welcome to BookWise{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-brand">
+    <span class="auth-logo">📅</span>
+    <span class="auth-name">BookWise</span>
+    <span class="auth-tag">Smart room and equipment reservations</span>
+  </div>
+
+  <div class="auth-box">
+    <h1>Sign in</h1>
+    <p class="muted">Reserve rooms and equipment in a few clicks.</p>
+
+    {% if form.errors %}
+      <div class="alert error">That username or password didn't work. Please try again.</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" autofocus required>
+      </div>
+      <div class="field">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" required>
+      </div>
+      <button type="submit" class="btn">Sign in</button>
+    </form>
+
+    <p class="muted">New here? <a href="{% url 'register' %}">Create an account</a></p>
+  </div>
+
+  <p class="auth-foot">HCI Final Project · BookWise</p>
+</div>
+{% endblock %}

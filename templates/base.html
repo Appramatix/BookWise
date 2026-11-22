@@ -5,43 +5,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}BookWise{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}">
 </head>
-<body>
+<body class="{% if user.is_authenticated %}with-rail{% else %}no-rail{% endif %}">
+  {% with current=request.resolver_match.url_name %}
+  {% if user.is_authenticated %}
   <nav class="sidebar" aria-label="Main navigation">
-    <a href="/" class="logo" title="BookWise">
-      <span class="icon">📅</span><span class="label">BookWise</span>
+    <a href="{% url 'dashboard' %}" class="brand-link" title="BookWise">
+      <span class="brand-mark">📅</span>
+      <span class="label brand-text">BookWise<small>Reservations</small></span>
     </a>
-    <a href="/" class="active" title="Dashboard">
-      <span class="icon">🏠</span><span class="label">Dashboard</span>
-    </a>
-    <a href="/admin/reservations/reservation/add/" title="Reserve">
-      <span class="icon">➕</span><span class="label">Reserve</span>
-    </a>
-    <a href="/admin/reservations/reservation/" title="My Reservations">
-      <span class="icon">🗂️</span><span class="label">My Reservations</span>
-    </a>
-    <a href="#" title="Calendar (coming soon)">
-      <span class="icon">🗓️</span><span class="label">Calendar</span>
-    </a>
-    <a href="/admin/reservations/resource/" title="Resources">
-      <span class="icon">🏢</span><span class="label">Resources</span>
-    </a>
-    <a href="#" title="Insights (coming soon)">
-      <span class="icon">📊</span><span class="label">Insights</span>
-    </a>
-    <a href="/admin/reservations/activitylog/" title="Activity Log">
-      <span class="icon">🕘</span><span class="label">Activity Log</span>
-    </a>
+
+    <div class="nav-group">
+      <span class="nav-heading">Menu</span>
+
+      <a href="{% url 'dashboard' %}" class="nav-item {% if current == 'dashboard' %}active{% endif %}" title="Dashboard">
+        <span class="icon">🏠</span><span class="label">Dashboard</span>
+      </a>
+
+      {% if user.is_staff %}
+      <a href="{% url 'approvals' %}" class="nav-item {% if current == 'approvals' %}active{% endif %}" title="Approvals">
+        <span class="icon">✅</span><span class="label">Approvals</span>
+      </a>
+      <a href="{% url 'maintenance' %}" class="nav-item {% if current == 'maintenance' %}active{% endif %}" title="Maintenance">
+        <span class="icon">🔧</span><span class="label">Maintenance</span>
+      </a>
+      <a href="{% url 'activity_log' %}" class="nav-item {% if current == 'activity_log' %}active{% endif %}" title="Activity Log">
+        <span class="icon">🕘</span><span class="label">Activity Log</span>
+      </a>
+      {% else %}
+      <a href="{% url 'reserve' %}" class="nav-item {% if current == 'reserve' %}active{% endif %}" title="Reserve">
+        <span class="icon">➕</span><span class="label">Reserve</span>
+      </a>
+      <a href="{% url 'my_reservations' %}" class="nav-item {% if current == 'my_reservations' %}active{% endif %}" title="My Reservations">
+        <span class="icon">🗂️</span><span class="label">My Reservations</span>
+      </a>
+      {% endif %}
+    </div>
+
+    {% if user.is_staff %}
+    <div class="nav-group">
+      <span class="nav-heading">Admin</span>
+      <a href="/admin/" class="nav-item" title="Manage (admin panel)">
+        <span class="icon">⚙️</span><span class="label">Manage</span>
+      </a>
+    </div>
+    {% endif %}
+
+    <div class="sidebar-footer">
+      <div class="me">
+        <span class="me-avatar">{{ user.username|slice:":1"|upper }}</span>
+        <span class="label me-info">
+          <span class="me-name">{{ user.username }}</span>
+          <span class="me-role">{% if user.is_superuser %}Admin{% elif user.is_staff %}Staff{% else %}Borrower{% endif %}</span>
+        </span>
+      </div>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="logout" title="Log out">
+          <span class="icon">🚪</span><span class="label">Log out</span>
+        </button>
+      </form>
+    </div>
   </nav>
+  {% endif %}
 
   <div class="main">
     <header class="topbar">
-      <div class="page-title">{% block heading %}Dashboard{% endblock %}</div>
-      <a class="user" href="{% if user.is_authenticated %}/admin/{% else %}/admin/login/?next=/{% endif %}">
-        <span class="avatar">{% if user.is_authenticated %}{{ user.username|slice:":1"|upper }}{% else %}G{% endif %}</span>
-        {% if user.is_authenticated %}{{ user.username }}{% else %}Sign in{% endif %}
-      </a>
+      <div class="topbar-glass">
+        <div class="page-title">{% block heading %}BookWise{% endblock %}</div>
+        <div class="user">
+          {% if user.is_authenticated %}
+            <span class="role">{% if user.is_superuser %}Admin{% elif user.is_staff %}Staff{% else %}Borrower{% endif %}</span>
+            <span class="avatar">{{ user.username|slice:":1"|upper }}</span>
+            {{ user.username }}
+          {% else %}
+            <a href="{% url 'login' %}">Sign in</a>
+          {% endif %}
+        </div>
+      </div>
     </header>
 
     <main class="content">
@@ -53,5 +95,49 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+  {% endwith %}
+
+  <!-- Custom confirm dialog (replaces the browser's confirm box) -->
+  <dialog id="confirm-dialog" class="modal" aria-labelledby="confirm-title">
+    <div class="modal-icon">⚠️</div>
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-message"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="confirm-cancel">Go back</button>
+      <button type="button" class="btn" id="confirm-ok">Confirm</button>
+    </div>
+  </dialog>
+
+  <script>
+    (function () {
+      var dialog = document.getElementById('confirm-dialog');
+      var okBtn = document.getElementById('confirm-ok');
+      var pendingForm = null;
+
+      document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form.dataset || !form.dataset.confirm) return;
+        e.preventDefault();
+        pendingForm = form;
+        document.getElementById('confirm-title').textContent = form.dataset.confirmTitle || 'Are you sure?';
+        document.getElementById('confirm-message').textContent = form.dataset.confirm;
+        okBtn.textContent = form.dataset.confirmButton || 'Confirm';
+        okBtn.className = 'btn' + (form.dataset.confirmStyle === 'danger' ? ' danger' : '');
+        dialog.showModal();
+      });
+
+      okBtn.addEventListener('click', function () {
+        dialog.close();
+        if (pendingForm) { pendingForm.submit(); }
+      });
+      document.getElementById('confirm-cancel').addEventListener('click', function () {
+        dialog.close();
+        pendingForm = null;
+      });
+      dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) { dialog.close(); pendingForm = null; }
+      });
+    })();
+  </script>
 </body>
 </html>

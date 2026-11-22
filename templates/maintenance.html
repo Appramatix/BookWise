@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Maintenance · BookWise{% endblock %}
+{% block heading %}Maintenance{% endblock %}
+
+{% block content %}
+<h1>Maintenance</h1>
+<p class="muted">Mark a room or equipment as unavailable for repairs or redesign. It stays unavailable until you mark it as available again.</p>
+
+<div class="panel">
+  <h2 class="section" style="margin-top:0">Mark as unavailable</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert error">{{ error }}</div>{% endfor %}
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn">Mark as unavailable</button>
+  </form>
+</div>
+
+<h2 class="section">Currently unavailable</h2>
+{% if active %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Resource</th><th>Since</th><th>Reason</th><th>Status</th><th>Approved bookings affected</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      {% for w in active %}
+      <tr>
+        <td><strong>{{ w.resource.name }}</strong><br><span class="muted">{{ w.resource.get_type_display }}</span></td>
+        <td>
+          {{ w.start_time|date:"M d, h:i A" }}
+          {% if w.end_time %}<br><span class="muted">to {{ w.end_time|date:"M d, h:i A" }}</span>
+          {% else %}<br><span class="muted">until further notice</span>{% endif %}
+        </td>
+        <td>{{ w.reason }}</td>
+        <td>
+          {% if w.is_current %}<span class="badge maint">🔧 Under maintenance</span>
+          {% else %}<span class="badge pending">Scheduled</span>{% endif %}
+        </td>
+        <td>
+          {% for b in w.affected %}
+            <div class="affected">
+              <span><strong>{{ b.user.username }}</strong> · {{ b.start_time|date:"M d, h:i A" }}</span>
+              <form method="post" action="{% url 'staff_cancel' b.pk %}"
+                    data-confirm="{{ b.user.username }} will see that the booking was cancelled because the resource is unavailable."
+                    data-confirm-title="Cancel this booking?"
+                    data-confirm-button="Yes, cancel booking"
+                    data-confirm-style="danger">
+                {% csrf_token %}<button class="btn small danger">Cancel booking</button>
+              </form>
+            </div>
+          {% empty %}
+            <span class="muted">None</span>
+          {% endfor %}
+        </td>
+        <td class="actions">
+          <form method="post" action="{% url 'end_maintenance' w.pk %}"
+                data-confirm="{% if w.is_current %}It becomes available for requests right away.{% else %}The scheduled maintenance will be removed.{% endif %}"
+                data-confirm-title="{% if w.is_current %}Mark as available?{% else %}Remove this maintenance?{% endif %}"
+                data-confirm-button="{% if w.is_current %}Yes, it's available{% else %}Yes, remove it{% endif %}">
+            {% csrf_token %}
+            <button class="btn small">{% if w.is_current %}Mark as available{% else %}Remove{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="panel"><p>Nothing is under maintenance. Everything is available.</p></div>
+{% endif %}
+
+{% if history %}
+<h2 class="section">Recently finished</h2>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Resource</th><th>Period</th><th>Reason</th></tr></thead>
+    <tbody>
+      {% for w in history %}
+      <tr>
+        <td>{{ w.resource.name }}</td>
+        <td>{{ w.start_time|date:"M d, h:i A" }} – {{ w.end_time|date:"M d, h:i A" }}</td>
+        <td>{{ w.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

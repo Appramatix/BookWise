@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Reserve · BookWise{% endblock %}
+{% block heading %}Reserve{% endblock %}
+
+{% block content %}
+<h1>Reserve a room or equipment</h1>
+<p class="muted">Pick what you need and when. We'll check for conflicts before saving.</p>
+
+<div class="panel">
+  {% if conflict_info %}
+    <div class="alert error">
+      <strong>That time isn't available.</strong> {{ conflict_info }}
+    </div>
+  {% endif %}
+
+  {% if form.non_field_errors and not conflict_info %}
+    {% for error in form.non_field_errors %}
+      <div class="alert error">{{ error }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% if suggestions %}
+    <div class="suggestions">
+      <p><strong>Free slots you can book instead:</strong></p>
+      {% for s in suggestions %}
+        <a class="chip" href="{% url 'reserve' %}?resource={{ form.resource.value }}&start={{ s.start_value }}&end={{ s.end_value }}">
+          {{ s.start|date:"M d, h:i A" }} – {{ s.end|date:"h:i A" }}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="btn">Confirm reservation</button>
+    <a href="{% url 'dashboard' %}" class="btn-link">Cancel</a>
+  </form>
+</div>
+{% endblock %}

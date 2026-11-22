@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Create account · BookWise{% endblock %}
+{% block heading %}Welcome to BookWise{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-brand">
+    <span class="auth-logo">📅</span>
+    <span class="auth-name">BookWise</span>
+    <span class="auth-tag">Smart room and equipment reservations</span>
+  </div>
+
+  <div class="auth-box">
+    <h1>Create account</h1>
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<small class="muted">{{ field.help_text|safe }}</small>{% endif %}
+          {% for error in field.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn">Create account</button>
+    </form>
+    <p class="muted">Already have an account? <a href="{% url 'login' %}">Sign in</a></p>
+  </div>
+
+  <p class="auth-foot">HCI Final Project · BookWise</p>
+</div>
+{% endblock %}

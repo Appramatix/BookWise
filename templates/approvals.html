@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Approvals · BookWise{% endblock %}
+{% block heading %}Approvals{% endblock %}
+
+{% block content %}
+<h1>Pending requests</h1>
+<p class="muted">Approve one request per time slot. Other requests for the same time are declined automatically.</p>
+
+{% if pending %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Requested by</th><th>Resource</th><th>When</th><th>Purpose</th><th>Competing</th><th>Decision</th></tr>
+    </thead>
+    <tbody>
+      {% for r in pending %}
+      <tr>
+        <td><strong>{{ r.user.username }}</strong></td>
+        <td>{{ r.resource.name }}<br><span class="muted">{{ r.resource.get_type_display }}</span></td>
+        <td>{{ r.start_time|date:"M d, h:i A" }} – {{ r.end_time|date:"h:i A" }}</td>
+        <td>{{ r.purpose|default:"—" }}</td>
+        <td>
+          {% if r.competing %}
+            <span class="badge rejected">⚠ {{ r.competing }} other request{{ r.competing|pluralize }}</span>
+          {% else %}
+            <span class="muted">None</span>
+          {% endif %}
+        </td>
+        <td class="actions">
+          {% if r.blocked_by %}
+            <span class="note">Slot already approved for someone else.</span>
+          {% else %}
+            <form method="post" action="{% url 'approve' r.pk %}">
+              {% csrf_token %}<button class="btn small">Approve</button>
+            </form>
+          {% endif %}
+          <form method="post" action="{% url 'reject' r.pk %}"
+                data-confirm="The borrower will see your reason in My Reservations."
+                data-confirm-title="Reject this request?"
+                data-confirm-button="Yes, reject"
+                data-confirm-style="danger">
+            {% csrf_token %}
+            <input class="reason" type="text" name="reason" placeholder="Reason (optional)" maxlength="200">
+            <button class="btn small danger">Reject</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="panel"><p>🎉 No pending requests right now.</p></div>
+{% endif %}
+{% endblock %}

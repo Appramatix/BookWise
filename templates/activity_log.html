@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Activity Log · BookWise{% endblock %}
+{% block heading %}Activity Log{% endblock %}
+
+{% block content %}
+<h1>Activity Log</h1>
+<p class="muted">A record of who did what, and when.</p>
+
+<form method="get" class="log-filters">
+  <div class="chips-row">
+    <a class="filter-chip {% if period == 'today' %}on{% endif %}" href="?period=today&q={{ q }}">Today</a>
+    <a class="filter-chip {% if period == 'week' %}on{% endif %}" href="?period=week&q={{ q }}">Last 7 days</a>
+    <a class="filter-chip {% if period == 'all' %}on{% endif %}" href="?period=all&q={{ q }}">All time</a>
+  </div>
+  <input type="hidden" name="period" value="{{ period }}">
+  <input class="reason search" type="search" name="q" value="{{ q }}" placeholder="Search by user or action">
+  <button class="btn small">Search</button>
+</form>
+
+{% if items %}
+<ul class="timeline">
+  {% for item in items %}
+  <li class="tl-item {{ item.kind }}">
+    <span class="tl-icon">{{ item.icon }}</span>
+    <div>
+      <div class="tl-action">{{ item.entry.action }}</div>
+      <div class="note">
+        by <strong>{{ item.entry.user.username|default:"Unknown" }}</strong>
+        · {{ item.entry.timestamp|date:"M d, h:i A" }}
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+  <div class="panel"><p>No activity found for this filter.</p></div>
+{% endif %}
+{% endblock %}
