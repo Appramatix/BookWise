@@ -86,7 +86,7 @@
       </div>
     </header>
 
-    <main class="content">
+        <main class="content" {% block live %}{% endblock %}>
       {% if messages %}
         {% for message in messages %}
           <div class="alert {{ message.tags }}">{{ message }}</div>
@@ -107,6 +107,48 @@
       <button type="button" class="btn" id="confirm-ok">Confirm</button>
     </div>
   </dialog>
+
+    <script>
+    // Quietly refresh pages marked data-live every 30 seconds
+    (function () {
+      var main = document.querySelector('main.content[data-live]');
+      if (!main) return;
+      var last = Date.now();
+
+      function showStatus(text) {
+        var el = document.getElementById('live-status');
+        if (el) el.textContent = text;
+      }
+      function tick() {
+        var secs = Math.round((Date.now() - last) / 1000);
+        showStatus(secs < 8 ? 'Updated just now' : 'Updated ' + secs + 's ago');
+      }
+      function refresh() {
+        if (document.hidden) return;
+        var a = document.activeElement;
+        if (a && main.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+        var dlg = document.getElementById('confirm-dialog');
+        if (dlg && dlg.open) return;
+
+        fetch(window.location.href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var fresh = doc.querySelector('main.content[data-live]');
+            if (!fresh) return;
+            main.innerHTML = fresh.innerHTML;
+            last = Date.now();
+            tick();
+          })
+          .catch(function () { showStatus('Offline, retrying…'); });
+      }
+
+      setInterval(refresh, 30000);
+      setInterval(tick, 5000);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
+      tick();
+    })();
+  </script>
 
   <script>
     (function () {

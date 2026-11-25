@@ -16,7 +16,8 @@ from .forms import MaintenanceForm, ReservationForm
 from .models import ActivityLog, MaintenanceWindow, Profile, Reservation, Resource
 from .services import suggest_slots
 
-CHECK_IN_WINDOW = timedelta(minutes=15)
+CHECK_IN_WINDOW = timedelta(minutes=2)   # check-in opens this long before the start
+NO_SHOW_GRACE = timedelta(minutes=1)     # ...and closes this long after the start
 OPEN_STATUSES = ['pending', 'confirmed', 'checked_in']
 TIMELINE_START_HOUR = 8
 TIMELINE_END_HOUR = 18
@@ -56,6 +57,34 @@ def reservations_hit_by(window, statuses):
     return qs
 
 
+def sweep_reservations():
+    """Automatic rules: keep statuses honest without anyone clicking anything."""
+    now = timezone.now()
+
+    # 1. Approved but never checked in -> no-show, and the slot is freed.
+    late = Reservation.objects.filter(
+        status='confirmed', start_time__lt=now - NO_SHOW_GRACE
+    ).select_related('user', 'resource')
+    for r in late:
+        r.status = 'no_show'
+        r.decision_note = "Marked as no-show: not checked in within 15 minutes of the start time."
+        r.save(update_fields=['status', 'decision_note'])
+        log(None, f"No-show: {r.user} did not check in for {r.resource}", r)
+
+    # 2. Checked in and finished -> completed.
+    Reservation.objects.filter(status='checked_in', end_time__lt=now).update(status='completed')
+
+    # 3. Pending requests nobody reviewed before the requested time -> expired.
+    stale = Reservation.objects.filter(
+        status='pending', end_time__lt=now
+    ).select_related('user', 'resource')
+    for r in stale:
+        r.status = 'rejected'
+        r.decision_note = "Expired: nobody reviewed this request before the requested time."
+        r.save(update_fields=['status', 'decision_note'])
+        log(None, f"Expired: {r.user}'s request for {r.resource} was never reviewed", r)
+
+
 def register(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -71,6 +100,7 @@ def register(request):
 
 @login_required
 def dashboard(request):
+    sweep_reservations()
     now = timezone.now()
     cards = []
     for r in Resource.objects.filter(is_active=True):
@@ -117,6 +147,7 @@ def hour_label(h):
 
 @login_required
 def resource_detail(request, pk):
+    sweep_reservations()
     resource = get_object_or_404(Resource, pk=pk, is_active=True)
     now = timezone.now()
     today = timezone.localdate()
@@ -294,6 +325,7 @@ def reserve(request):
 
 @login_required
 def my_reservations(request):
+    sweep_reservations()
     now = timezone.now()
     mine = Reservation.objects.filter(user=request.user).select_related('resource')
     upcoming = list(
@@ -301,8 +333,10 @@ def my_reservations(request):
     )
     for r in upcoming:
         r.can_check_in = (
-            r.status == 'confirmed' and r.start_time - CHECK_IN_WINDOW <= now < r.end_time
+            r.status == 'confirmed'
+            and r.start_time - CHECK_IN_WINDOW <= now <= r.start_time + NO_SHOW_GRACE
         )
+        r.checkin_deadline = r.start_time + NO_SHOW_GRACE
     upcoming_ids = [r.pk for r in upcoming]
     past = mine.exclude(pk__in=upcoming_ids).order_by('-start_time')[:30]
     return render(request, 'my_reservations.html', {'upcoming': upcoming, 'past': past})
@@ -328,13 +362,16 @@ def cancel_reservation(request, pk):
 def check_in(request, pk):
     r = get_object_or_404(Reservation, pk=pk, user=request.user)
     now = timezone.now()
-    if r.status == 'confirmed' and r.start_time - CHECK_IN_WINDOW <= now < r.end_time:
+    if r.status == 'confirmed' and r.start_time - CHECK_IN_WINDOW <= now <= r.start_time + NO_SHOW_GRACE:
         r.status = 'checked_in'
         r.save(update_fields=['status'])
         log(request.user, f"Checked in to {r.resource}", r)
         messages.success(request, f"Checked in. Enjoy {r.resource}!")
     else:
-        messages.error(request, "Check-in opens 15 minutes before the start time.")
+        messages.error(
+            request,
+            "Check-in opens 15 minutes before the start time and closes 15 minutes after it."
+        )
     return redirect('my_reservations')
 
 
@@ -342,6 +379,7 @@ def check_in(request, pk):
 
 @staff_required
 def approvals(request):
+    sweep_reservations()
     now = timezone.now()
     pending = list(
         Reservation.objects.filter(status='pending', end_time__gte=now)
@@ -513,6 +551,10 @@ def log_style(action):
         return '✅', 'approved'
     if a.startswith(('rejected', 'auto-declined')):
         return '✕', 'rejected'
+    if a.startswith('no-show'):
+        return '⏰', 'noshow'
+    if a.startswith('expired'):
+        return '⌛', 'other'
     if a.startswith('requested'):
         return '📝', 'requested'
     if a.startswith('cancelled'):
@@ -544,140 +586,3 @@ def activity_log(request):
         items.append({'entry': e, 'icon': icon, 'kind': kind})
 
     return render(request, 'activity_log.html', {'items': items, 'period': period, 'q': q})
-
-# ---------- Room page ----------
-
-TIMELINE_START_HOUR = 8
-TIMELINE_END_HOUR = 18
-
-
-def hour_label(h):
-    return f"{h % 12 or 12} {'AM' if h < 12 else 'PM'}"
-
-
-@login_required
-def resource_detail(request, pk):
-    resource = get_object_or_404(Resource, pk=pk, is_active=True)
-    now = timezone.now()
-    today = timezone.localdate()
-    is_staff = request.user.is_staff
-
-    try:
-        day = datetime.strptime(request.GET.get('date', ''), '%Y-%m-%d').date()
-    except ValueError:
-        day = today
-
-    day_start = timezone.make_aware(datetime.combine(day, time.min))
-    day_end = day_start + timedelta(days=1)
-
-    # Status right now
-    maint_now = (
-        resource.maintenance.filter(start_time__lte=now)
-        .filter(Q(end_time__isnull=True) | Q(end_time__gt=now))
-        .first()
-    )
-    current = (
-        resource.reservations.filter(
-            status__in=Reservation.ACTIVE, start_time__lte=now, end_time__gt=now
-        )
-        .select_related('user')
-        .first()
-    )
-    if maint_now:
-        status, icon, label = 'maint', '🔧', 'Under maintenance'
-    elif current is None:
-        status, icon, label = 'free', '✓', 'Free'
-    elif current.status == 'checked_in':
-        status, icon, label = 'inuse', '⏱', 'In use'
-    else:
-        status, icon, label = 'booked', '✕', 'Booked'
-
-    # The chosen day
-    bookings = list(
-        Reservation.objects.filter(
-            resource=resource, status__in=Reservation.ACTIVE,
-            start_time__lt=day_end, end_time__gt=day_start,
-        ).select_related('user').order_by('start_time')
-    )
-    windows = list(MaintenanceWindow.overlapping(resource, day_start, day_end))
-
-    pending = []
-    if is_staff:
-        pending = list(
-            Reservation.objects.filter(
-                resource=resource, status='pending',
-                start_time__lt=day_end, end_time__gt=day_start,
-            ).select_related('user').order_by('start_time')
-        )
-        for p in pending:
-            p.blocked_by = p.conflicts().first()
-
-    # Timeline bar
-    total = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 3600
-    tl_start = day_start + timedelta(hours=TIMELINE_START_HOUR)
-    tl_end = day_start + timedelta(hours=TIMELINE_END_HOUR)
-
-    def block(start, end, kind, label_text, detail):
-        s, e = max(start, tl_start), min(end, tl_end)
-        if e <= s:
-            return None
-        return {
-            'left': (s - tl_start).total_seconds() / total * 100,
-            'width': (e - s).total_seconds() / total * 100,
-            'kind': kind, 'label': label_text, 'detail': detail,
-        }
-
-    blocks = []
-    for b in bookings:
-        item = block(
-            b.start_time, b.end_time,
-            'inuse' if b.status == 'checked_in' else 'booked',
-            b.user.username if is_staff else 'Booked',
-            f"{timezone.localtime(b.start_time):%I:%M %p} – {timezone.localtime(b.end_time):%I:%M %p}",
-        )
-        if item:
-            blocks.append(item)
-    for w in windows:
-        item = block(w.start_time, w.end_time or day_end, 'maint', 'Maintenance', w.reason)
-        if item:
-            blocks.append(item)
-
-    ticks = [
-        {'left': (h - TIMELINE_START_HOUR) / (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 100,
-         'label': hour_label(h)}
-        for h in range(TIMELINE_START_HOUR, TIMELINE_END_HOUR + 1, 2)
-    ]
-    now_pct = None
-    if day == today and tl_start <= now <= tl_end:
-        now_pct = (now - tl_start).total_seconds() / total * 100
-
-    # Staff-only numbers
-    stats = None
-    history = []
-    if is_staff:
-        stats = {
-            'last7': Reservation.objects.filter(
-                resource=resource, status__in=Reservation.ACTIVE + ['completed'],
-                start_time__gte=now - timedelta(days=7), start_time__lte=now,
-            ).count(),
-            'upcoming': Reservation.objects.filter(
-                resource=resource, status__in=Reservation.ACTIVE, start_time__gt=now
-            ).count(),
-            'pending': Reservation.objects.filter(
-                resource=resource, status='pending', end_time__gte=now
-            ).count(),
-        }
-        history = list(resource.maintenance.filter(end_time__lte=now).order_by('-end_time')[:5])
-
-    return render(request, 'resource_detail.html', {
-        'resource': resource, 'day': day, 'is_today': day == today,
-        'prev_day': (day - timedelta(days=1)).isoformat(),
-        'next_day': (day + timedelta(days=1)).isoformat(),
-        'today_str': today.isoformat(),
-        'status': status, 'icon': icon, 'label': label,
-        'maint_now': maint_now, 'current': current,
-        'blocks': blocks, 'ticks': ticks, 'now_pct': now_pct,
-        'bookings': bookings, 'pending': pending, 'windows': windows,
-        'stats': stats, 'history': history,
-        'start_label': hour_label(TIMELINE_START_HOUR), 'end_label': hour_label(TIMELINE_END_HOUR),
-    })

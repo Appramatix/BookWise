@@ -1,9 +1,12 @@
 {% extends "base.html" %}
+{% block live %}data-live{% endblock %}
 {% block title %}Dashboard · BookWise{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 
 {% block content %}
-<h1>Live Availability</h1>
+<h1>Live Availability
+  <span class="live-chip"><i class="live-dot"></i><span id="live-status">Live</span></span>
+</h1>
 <p class="muted">As of {{ now|date:"M d, h:i A" }} · Click a room to see its schedule</p>
 
 {% if user.is_staff and pending_count %}

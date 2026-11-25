@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block live %}data-live{% endblock %}
 {% block title %}My Reservations · BookWise{% endblock %}
 {% block heading %}My Reservations{% endblock %}
 
@@ -21,6 +22,7 @@
         <td>
           <span class="badge {{ r.status }}">{{ r.get_status_display }}</span>
           {% if r.status == 'pending' %}<br><span class="note">Waiting for admin approval</span>{% endif %}
+          {% if r.status == 'confirmed' %}<br><span class="note">Check in by {{ r.checkin_deadline|date:"h:i A" }} or it's marked a no-show</span>{% endif %}
         </td>
         <td class="actions">
           {% if r.can_check_in %}

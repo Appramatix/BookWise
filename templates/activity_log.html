@@ -25,7 +25,7 @@
     <div>
       <div class="tl-action">{{ item.entry.action }}</div>
       <div class="note">
-        by <strong>{{ item.entry.user.username|default:"Unknown" }}</strong>
+        by <strong>{{ item.entry.user.username|default:"System" }}</strong>
         · {{ item.entry.timestamp|date:"M d, h:i A" }}
       </div>
     </div>
